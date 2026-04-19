@@ -7,6 +7,7 @@ import {
 import {
  Home as HomeIcon, Target, Plus, Trash2, ChevronDown, ChevronRight,
  Search, X, Check, Menu, Flame, TrendingUp, Sparkles, CircleDot,
+ Pencil, ArrowLeft, GripVertical, NotebookPen,
 } from 'lucide-react';
 
 /* =========================================================================
@@ -14,11 +15,10 @@ import {
   ========================================================================= */
 
 const QUOTES = [
- "Be better then you were yesterday.",
- "He who has a why to live for can bear almost any how. — Friedrich Nietzsche",
+ "Discipline is choosing between what you want now and what you want most. — Abraham Lincoln",
  "We are what we repeatedly do. Excellence, then, is not an act, but a habit. — Aristotle",
  "The person you will be in five years is based on the books you read and the people you spend time with today.",
- "That which does not kill us makes us stronger.— Friedrich Nietzsche",
+ "Small daily improvements over time lead to stunning results. — Robin Sharma",
  "You do not rise to the level of your goals. You fall to the level of your systems. — James Clear",
  "The cave you fear to enter holds the treasure you seek. — Joseph Campbell",
  "Between stimulus and response there is a space. In that space is our power to choose. — Viktor Frankl",
@@ -36,6 +36,20 @@ const ASPECT_COLORS = {
 const EXTRA_COLORS = ['#F472B6', '#06B6D4', '#A78BFA', '#FB923C', '#84CC16'];
 const getAspectColor = (aspect, index = 0) =>
  ASPECT_COLORS[aspect.name] || aspect.color || EXTRA_COLORS[index % EXTRA_COLORS.length];
+
+/* KPI Criticality is a metadata-only tag. It carries NO scoring weight — it
+  exists purely to surface visual emphasis on KPIs the user considers more
+  important. Colors chosen to distinguish themselves from the theme accent:
+   High  → rose (matches theme; the "urgent" color)
+   Medium → amber (warm neutral)
+   Low  → slate (cool, de-emphasized)                                    */
+const CRITICALITY_LEVELS = ['high', 'medium', 'low'];
+const CRITICALITY_STYLES = {
+ high:  { dot: '#F43F5E', ring: 'rgba(244,63,94,0.35)',  label: 'High'  },
+ medium: { dot: '#F59E0B', ring: 'rgba(245,158,11,0.35)', label: 'Medium' },
+ low:   { dot: '#64748B', ring: 'rgba(100,116,139,0.35)', label: 'Low'  },
+};
+const normalizeCriticality = (c) => (CRITICALITY_LEVELS.includes(c) ? c : 'medium');
 
 /* =========================================================================
   2. DATE & PERIOD UTILITIES
@@ -275,19 +289,19 @@ const SEED_ASPECTS = [
 ];
 
 const SEED_KPIS = [
- { id: 'k1', aspectId: 'a1', name: 'Workout Session',   description: '45+ min training block',  period: 'weekly', status: 'active' },
- { id: 'k2', aspectId: 'a1', name: 'Sleep 7+ hours',   description: 'Full night\'s rest',    period: 'weekly', status: 'active' },
- { id: 'k3', aspectId: 'a1', name: 'Full Health Review', description: 'Monthly bloodwork check', period: 'monthly', status: 'active' },
+ { id: 'k1', aspectId: 'a1', name: 'Workout Session',   description: '45+ min training block',  period: 'weekly', criticality: 'high', status: 'active' },
+ { id: 'k2', aspectId: 'a1', name: 'Sleep 7+ hours',   description: 'Full night\'s rest',    period: 'weekly', criticality: 'high', status: 'active' },
+ { id: 'k3', aspectId: 'a1', name: 'Full Health Review', description: 'Monthly bloodwork check', period: 'monthly', criticality: 'medium', status: 'active' },
 
- { id: 'k4', aspectId: 'a2', name: 'Read a Chapter',   description: 'Non-fiction reading',    period: 'weekly', status: 'active' },
- { id: 'k5', aspectId: 'a2', name: 'Journal Reflection', description: 'Weekly written entry',   period: 'weekly', status: 'active' },
- { id: 'k6', aspectId: 'a2', name: 'Finish a Course Module', description: 'Online learning',    period: 'monthly', status: 'active' },
+ { id: 'k4', aspectId: 'a2', name: 'Read a Chapter',   description: 'Non-fiction reading',    period: 'weekly', criticality: 'medium', status: 'active' },
+ { id: 'k5', aspectId: 'a2', name: 'Journal Reflection', description: 'Weekly written entry',   period: 'weekly', criticality: 'low', status: 'active' },
+ { id: 'k6', aspectId: 'a2', name: 'Finish a Course Module', description: 'Online learning',    period: 'monthly', criticality: 'medium', status: 'active' },
 
- { id: 'k7', aspectId: 'a3', name: 'Reach Out to a Friend', description: 'Meaningful message or call', period: 'weekly', status: 'active' },
- { id: 'k8', aspectId: 'a3', name: 'Attend an Event',   description: 'Meetup, dinner, gathering', period: 'monthly', status: 'active' },
+ { id: 'k7', aspectId: 'a3', name: 'Reach Out to a Friend', description: 'Meaningful message or call', period: 'weekly', criticality: 'medium', status: 'active' },
+ { id: 'k8', aspectId: 'a3', name: 'Attend an Event',   description: 'Meetup, dinner, gathering', period: 'monthly', criticality: 'low', status: 'active' },
 
- { id: 'k9', aspectId: 'a4', name: 'Deep Work Block',   description: '4hr uninterrupted focus',  period: 'weekly', status: 'active' },
- { id: 'k10', aspectId: 'a4', name: 'Ship a Milestone',  description: 'Project deliverable',    period: 'monthly', status: 'active' },
+ { id: 'k9', aspectId: 'a4', name: 'Deep Work Block',   description: '4hr uninterrupted focus',  period: 'weekly', criticality: 'high', status: 'active' },
+ { id: 'k10', aspectId: 'a4', name: 'Ship a Milestone',  description: 'Project deliverable',    period: 'monthly', criticality: 'high', status: 'active' },
 ];
 
 /* =========================================================================
@@ -309,6 +323,14 @@ function loadFromStorage() {
     !Array.isArray(parsed.kpis) || !Array.isArray(parsed.entries)) {
    return null;
   }
+  // Forward-compat migration: any KPI missing the `criticality` field
+  // inherits a sensible default so older saved snapshots keep working.
+  parsed.kpis = parsed.kpis.map((k) => ({
+   ...k,
+   criticality: normalizeCriticality(k.criticality),
+  }));
+  // Notes map is optional — default to empty.
+  parsed.notes = (parsed.notes && typeof parsed.notes === 'object') ? parsed.notes : {};
   return parsed;
  } catch {
   // Corrupted JSON, quota errors, or disabled storage — fall back to defaults.
@@ -342,13 +364,15 @@ function AppProvider({ children }) {
  const [aspects, setAspects] = useState(persisted?.aspects ?? SEED_ASPECTS);
  const [kpis, setKpis]    = useState(persisted?.kpis  ?? SEED_KPIS);
  const [entries, setEntries] = useState(persisted?.entries ?? []);
+ // Notes are stored per aspect id: { [aspectId]: 'markdown-ish bullet text' }.
+ const [notes, setNotes]   = useState(persisted?.notes ?? {});
 
- // Save-on-change: every mutation to the three core arrays triggers a
+ // Save-on-change: every mutation to the four core slices triggers a
  // debounced-free localStorage write. JSON is small (< 50KB even after
  // years of use), so synchronous writes are fine here.
  useEffect(() => {
-  saveToStorage({ aspects, kpis, entries });
- }, [aspects, kpis, entries]);
+  saveToStorage({ aspects, kpis, entries, notes });
+ }, [aspects, kpis, entries, notes]);
 
  const [currentPage, setCurrentPage]  = useState('home');   // 'home' | 'aspects'
  const [aspectFilter, setAspectFilter] = useState(null);    // aspect id or null
@@ -363,11 +387,70 @@ function AppProvider({ children }) {
   }]);
  };
 
- const addKPI = (aspectId, name, description, period) => {
+ const addKPI = (aspectId, name, description, period, criticality = 'medium') => {
   const id = `k_${Date.now()}`;
   setKpis((prev) => [...prev, {
-   id, aspectId, name, description, period, status: 'active',
+   id, aspectId, name, description, period,
+   criticality: normalizeCriticality(criticality),
+   status: 'active',
   }]);
+ };
+
+ // Editing preserves id, aspectId, status, period, and every reference used
+ // in scoring (entries key off kpi id, not name). Only label metadata mutates.
+ const editAspect = (aspectId, { name, description }) => {
+  setAspects((prev) => prev.map((a) =>
+   a.id === aspectId ? { ...a, name: name ?? a.name, description: description ?? a.description } : a
+  ));
+ };
+ const editKPI = (kpiId, { name, description, criticality }) => {
+  setKpis((prev) => prev.map((k) =>
+   k.id === kpiId
+    ? {
+      ...k,
+      name: name ?? k.name,
+      description: description ?? k.description,
+      criticality: criticality !== undefined ? normalizeCriticality(criticality) : k.criticality,
+     }
+    : k
+  ));
+ };
+
+ // Reordering: move an aspect to a new position in the aspects array. The
+ // visual order in every view (radar, matrix, management list) derives from
+ // this same array, so a single mutation propagates everywhere.
+ const moveAspect = (sourceId, targetId) => {
+  if (sourceId === targetId) return;
+  setAspects((prev) => {
+   const src = prev.findIndex((a) => a.id === sourceId);
+   const tgt = prev.findIndex((a) => a.id === targetId);
+   if (src === -1 || tgt === -1) return prev;
+   const next = [...prev];
+   const [moved] = next.splice(src, 1);
+   next.splice(tgt, 0, moved);
+   return next;
+  });
+ };
+
+ // Reordering KPIs: parent-child constraint is enforced here. A KPI can only
+ // land next to another KPI belonging to the SAME aspect. Cross-parent drags
+ // are rejected silently.
+ const moveKPI = (sourceId, targetId) => {
+  if (sourceId === targetId) return;
+  setKpis((prev) => {
+   const src = prev.findIndex((k) => k.id === sourceId);
+   const tgt = prev.findIndex((k) => k.id === targetId);
+   if (src === -1 || tgt === -1) return prev;
+   if (prev[src].aspectId !== prev[tgt].aspectId) return prev; // blocked
+   const next = [...prev];
+   const [moved] = next.splice(src, 1);
+   next.splice(tgt, 0, moved);
+   return next;
+  });
+ };
+
+ const updateNotes = (aspectId, text) => {
+  setNotes((prev) => ({ ...prev, [aspectId]: text }));
  };
 
  // Soft delete: flag as 'trash' — historical entries remain so scores stay intact.
@@ -396,8 +479,9 @@ function AppProvider({ children }) {
  const activeKPIs  = kpis.filter((k) => k.status === 'active');
 
  const value = {
-  aspects, activeAspects, kpis, activeKPIs, entries,
+  aspects, activeAspects, kpis, activeKPIs, entries, notes,
   addAspect, addKPI, softDeleteAspect, softDeleteKPI, toggleEntry,
+  editAspect, editKPI, moveAspect, moveKPI, updateNotes,
   currentPage, setCurrentPage,
   aspectFilter, setAspectFilter,
   searchQuery, setSearchQuery,
@@ -634,8 +718,15 @@ function HomePage() {
     </div>
    </div>
 
-   {/* Bottom row: historical line chart */}
-   <HistoricalSection aspects={aspectsToShow} />
+   {/* Bottom row: historical line chart + filtered-view notepad (side by side) */}
+   <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div className="xl:col-span-2">
+     <HistoricalSection aspects={aspectsToShow} />
+    </div>
+    <div className="xl:col-span-1">
+     <NotepadSection aspects={aspectsToShow} />
+    </div>
+   </div>
   </div>
  );
 }
@@ -670,17 +761,67 @@ function StatStrip() {
 function RadarSection({ aspects }) {
  const { kpis, entries } = useApp();
 
+ // Drill-down state: null = Level 1 (aspects), aspectId = Level 2 (KPIs of that aspect).
+ const [drillAspectId, setDrillAspectId] = useState(null);
+
+ // If the aspect being drilled into is filtered out or removed, bounce back.
+ useEffect(() => {
+  if (drillAspectId && !aspects.some((a) => a.id === drillAspectId)) {
+   setDrillAspectId(null);
+  }
+ }, [drillAspectId, aspects]);
+
  // Round to exactly 2 decimal places for every value surfaced to the UI.
  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
- const radarData = aspects.map((a, i) => ({
-  aspect: a.name,
-  score: round2(calculateCumulativeAspectScore(a.id, kpis, entries)),
-  color: getAspectColor(a, i),
- }));
+ const drillAspect = drillAspectId ? aspects.find((a) => a.id === drillAspectId) : null;
+
+ // Level 1: cumulative aspect scores (unchanged legacy behavior).
+ // Level 2: current-month MAS per KPI under the drilled aspect, bounded 0–10.
+ const radarData = drillAspect
+  ? kpis
+    .filter((k) => k.aspectId === drillAspect.id && k.status === 'active')
+    .map((k, i) => ({
+     aspect: k.name,
+     score: round2(calculateKPIMonthlyMAS(k, entries, formatYearMonth(new Date()))),
+     color: CRITICALITY_STYLES[normalizeCriticality(k.criticality)].dot,
+     _kpiId: k.id,
+    }))
+  : aspects.map((a, i) => ({
+    aspect: a.name,
+    score: round2(calculateCumulativeAspectScore(a.id, kpis, entries)),
+    color: getAspectColor(a, i),
+    _aspectId: a.id,
+   }));
 
  const total = round2(radarData.reduce((acc, r) => acc + r.score, 0));
- const max = Math.max(10, ...radarData.map((r) => r.score)) * 1.15;
+ // Level 2 is bounded to 10 (MAS ceiling per KPI). Level 1 scales with max.
+ const max = drillAspect
+  ? 10
+  : Math.max(10, ...radarData.map((r) => r.score)) * 1.15;
+
+ // Custom clickable tick for Level 1 angle labels — enables drill-down.
+ const ClickableTick = (props) => {
+  const { payload, x, y, textAnchor } = props;
+  const datum = radarData.find((d) => d.aspect === payload.value);
+  const isLevelOne = !drillAspect;
+  return (
+   <text
+    x={x}
+    y={y}
+    textAnchor={textAnchor}
+    fill="#d4d4d4"
+    fontSize={12}
+    fontFamily="Fraunces, serif"
+    style={{ cursor: isLevelOne ? 'pointer' : 'default' }}
+    onClick={() => {
+     if (isLevelOne && datum?._aspectId) setDrillAspectId(datum._aspectId);
+    }}
+   >
+    {payload.value}
+   </text>
+  );
+ };
 
  return (
   <div className="bg-neutral-900/40 border border-neutral-800 rounded-lg p-6 h-full relative overflow-hidden">
@@ -691,15 +832,29 @@ function RadarSection({ aspects }) {
    />
    <div className="relative">
     <div className="flex items-start justify-between mb-4 gap-4">
-     <div>
-      <div className="label-mini text-neutral-500 font-mono-ui">
-       Life Balance
+     <div className="flex items-start gap-3">
+      {drillAspect && (
+       <button
+        onClick={() => setDrillAspectId(null)}
+        className="mt-1 p-1.5 rounded-md border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-rose-400 hover:border-rose-600/50 transition-colors"
+        aria-label="Back to aspects"
+        title="Back to aspects"
+       >
+        <ArrowLeft size={14} />
+       </button>
+      )}
+      <div>
+       <div className="label-mini text-neutral-500 font-mono-ui">
+        {drillAspect ? `${drillAspect.name} · KPIs` : 'Life Balance'}
+       </div>
+       <h3 className="font-display text-xl text-neutral-100 mt-0.5">
+        {drillAspect ? 'KPI Radar' : 'Aspect Radar'}
+       </h3>
       </div>
-      <h3 className="font-display text-xl text-neutral-100 mt-0.5">Aspect Radar</h3>
      </div>
      <div className="text-right shrink-0">
       <div className="label-micro text-neutral-500 font-mono-ui">
-       Total Aggregate
+       {drillAspect ? 'Monthly Sum' : 'Total Aggregate'}
       </div>
       <div className="font-display text-3xl text-rose-500 leading-none mt-1">
        {total.toFixed(2)}
@@ -708,44 +863,55 @@ function RadarSection({ aspects }) {
     </div>
 
     <div className="relative radar-h">
-     <ResponsiveContainer width="100%" height="100%">
-      <RadarChart data={radarData} outerRadius="75%">
-       <PolarGrid stroke="#404040" strokeDasharray="2 3" />
-       <PolarAngleAxis
-        dataKey="aspect"
-        tick={{ fill: '#d4d4d4', fontSize: 12, fontFamily: 'Fraunces, serif' }}
-       />
-       <PolarRadiusAxis
-        domain={[0, max]}
-        tick={{ fill: '#737373', fontSize: 10 }}
-        axisLine={false}
-        tickCount={5}
-        tickFormatter={(v) => round2(v).toFixed(2)}
-       />
-       <Radar
-        dataKey="score"
-        stroke="#E11D48"
-        fill="#E11D48"
-        fillOpacity={0.35}
-        strokeWidth={2}
-        dot={{ fill: '#E11D48', r: 3 }}
-       />
-       <Tooltip
-        contentStyle={{
-         background: '#0a0a0a',
-         border: '1px solid #262626',
-         borderRadius: 6,
-         color: '#fafafa',
-         fontSize: 12,
-        }}
-        formatter={(v) => [round2(v).toFixed(2), 'Cumulative']}
-       />
-      </RadarChart>
-     </ResponsiveContainer>
+     {radarData.length === 0 ? (
+      <div className="h-full flex items-center justify-center text-sm text-neutral-500">
+       No KPIs defined for this aspect yet.
+      </div>
+     ) : (
+      <ResponsiveContainer width="100%" height="100%">
+       <RadarChart data={radarData} outerRadius="75%">
+        <PolarGrid stroke="#404040" strokeDasharray="2 3" />
+        <PolarAngleAxis
+         dataKey="aspect"
+         tick={<ClickableTick />}
+        />
+        <PolarRadiusAxis
+         domain={[0, max]}
+         tick={{ fill: '#737373', fontSize: 10 }}
+         axisLine={false}
+         tickCount={5}
+         tickFormatter={(v) => round2(v).toFixed(2)}
+        />
+        <Radar
+         dataKey="score"
+         stroke={drillAspect ? getAspectColor(drillAspect) : '#E11D48'}
+         fill={drillAspect ? getAspectColor(drillAspect) : '#E11D48'}
+         fillOpacity={0.35}
+         strokeWidth={2}
+         dot={{ fill: drillAspect ? getAspectColor(drillAspect) : '#E11D48', r: 3 }}
+        />
+        <Tooltip
+         contentStyle={{
+          background: '#0a0a0a',
+          border: '1px solid #262626',
+          borderRadius: 6,
+          color: '#fafafa',
+          fontSize: 12,
+         }}
+         formatter={(v) => [round2(v).toFixed(2), drillAspect ? 'MAS' : 'Cumulative']}
+        />
+       </RadarChart>
+      </ResponsiveContainer>
+     )}
     </div>
 
-    {/* legend */}
+    {/* legend — hint at clickability on Level 1 */}
     <div className="flex flex-wrap gap-3 mt-5 pt-4 border-t border-neutral-800">
+     {!drillAspect && (
+      <div className="label-micro text-neutral-600 font-mono-ui w-full mb-1">
+       Click a label to drill in
+      </div>
+     )}
      {radarData.map((r) => (
       <div key={r.aspect} className="flex items-center gap-2 text-xs">
        <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
@@ -762,8 +928,13 @@ function RadarSection({ aspects }) {
 /* ----- Matrix ----- */
 function MatrixSection({ kpis, aspects }) {
  const [periodType, setPeriodType] = useState('weekly');
- const { entries, toggleEntry } = useApp();
+ const { entries, toggleEntry, moveAspect, moveKPI } = useApp();
  const scrollRef = useRef(null);
+
+ // Local drag state — only one item may be dragged at a time.
+ // kind tells us whether we're reordering aspects or KPIs, so we can
+ // enforce the parent-child constraint on KPI drops.
+ const [drag, setDrag] = useState(null); // { kind: 'aspect' | 'kpi', id, aspectId? }
 
  const filteredKPIs = kpis.filter((k) => k.period === periodType);
  const kpisByAspect = aspects
@@ -774,8 +945,6 @@ function MatrixSection({ kpis, aspects }) {
   .filter((group) => group.kpis.length > 0);
 
  // Extended matrix: past + current + future for predictive entry & goal setting.
- // Weekly: 11 past + current + 4 future = 16 columns.
- // Monthly: 7 past + current + 3 future = 11 columns.
  const pastCount  = periodType === 'weekly' ? 11 : 7;
  const futureCount = periodType === 'weekly' ? 4 : 3;
  const periodIds = getExtendedPeriodIds(periodType, pastCount, futureCount);
@@ -783,14 +952,53 @@ function MatrixSection({ kpis, aspects }) {
  const currentIndex = periodIds.indexOf(currentPeriod);
 
  // Anchor the initial scroll position to the current period so it appears as
- // the first visible column just after the sticky KPI-name column. Past periods
- // remain accessible by scrolling left; future periods sit to the right.
- // Each period column is w-16 (64px). Re-fires when periodType changes.
+ // the first visible column just after the sticky KPI-name column.
  useEffect(() => {
   if (scrollRef.current && currentIndex >= 0) {
    scrollRef.current.scrollLeft = currentIndex * 64;
   }
  }, [periodType, currentIndex]);
+
+ // ----- drag handlers -----
+ const handleAspectDragStart = (aspectId) => (e) => {
+  setDrag({ kind: 'aspect', id: aspectId });
+  e.dataTransfer.effectAllowed = 'move';
+ };
+ const handleKPIDragStart = (kpi) => (e) => {
+  setDrag({ kind: 'kpi', id: kpi.id, aspectId: kpi.aspectId });
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+ };
+ const handleAspectDragOver = (aspectId) => (e) => {
+  if (drag?.kind === 'aspect' && drag.id !== aspectId) {
+   e.preventDefault();
+   e.dataTransfer.dropEffect = 'move';
+  }
+ };
+ const handleKPIDragOver = (kpi) => (e) => {
+  // Only allow drop if same parent aspect — otherwise drop is rejected.
+  if (drag?.kind === 'kpi' && drag.aspectId === kpi.aspectId && drag.id !== kpi.id) {
+   e.preventDefault();
+   e.dataTransfer.dropEffect = 'move';
+   e.stopPropagation();
+  }
+ };
+ const handleAspectDrop = (aspectId) => (e) => {
+  if (drag?.kind === 'aspect' && drag.id !== aspectId) {
+   e.preventDefault();
+   moveAspect(drag.id, aspectId);
+  }
+  setDrag(null);
+ };
+ const handleKPIDrop = (kpi) => (e) => {
+  if (drag?.kind === 'kpi' && drag.aspectId === kpi.aspectId && drag.id !== kpi.id) {
+   e.preventDefault();
+   e.stopPropagation();
+   moveKPI(drag.id, kpi.id);
+  }
+  setDrag(null);
+ };
+ const handleDragEnd = () => setDrag(null);
 
  return (
   <div className="bg-neutral-900/40 border border-neutral-800 rounded-lg h-full flex flex-col">
@@ -854,28 +1062,71 @@ function MatrixSection({ kpis, aspects }) {
       </div>
 
       {/* Body rows */}
-      {kpisByAspect.map(({ aspect, kpis: aspectKPIs }, i) => (
-       <div key={aspect.id}>
-        <div className="flex bg-neutral-900/40 border-b border-neutral-800/50">
+      {kpisByAspect.map(({ aspect, kpis: aspectKPIs }, i) => {
+       const isAspectDragging = drag?.kind === 'aspect' && drag.id === aspect.id;
+       return (
+       <div
+        key={aspect.id}
+        className={`transition-opacity ${isAspectDragging ? 'opacity-40' : ''}`}
+       >
+        {/* aspect group header — drag handle lives here */}
+        <div
+         className="flex bg-neutral-900/40 border-b border-neutral-800/50"
+         onDragOver={handleAspectDragOver(aspect.id)}
+         onDrop={handleAspectDrop(aspect.id)}
+        >
          <div
-          className="w-64 shrink-0 p-2 pl-3 sticky left-0 bg-neutral-900/80 flex items-center gap-2 border-r border-neutral-800"
+          draggable
+          onDragStart={handleAspectDragStart(aspect.id)}
+          onDragEnd={handleDragEnd}
+          className="w-64 shrink-0 p-2 pl-2 sticky left-0 bg-neutral-900/80 flex items-center gap-2 border-r border-neutral-800 cursor-grab active:cursor-grabbing select-none"
+          title="Drag to reorder aspect"
          >
+          <GripVertical size={12} className="text-neutral-600 shrink-0" />
           <span
-           className="h-1.5 w-1.5 rounded-full"
+           className="h-1.5 w-1.5 rounded-full shrink-0"
            style={{ background: getAspectColor(aspect, i) }}
           />
-          <span className="label-micro font-mono-ui text-neutral-400">
+          <span className="label-micro font-mono-ui text-neutral-400 truncate">
            {aspect.name}
           </span>
          </div>
         </div>
         {aspectKPIs.map((kpi) => {
          const streak = calculateStreak(kpi, entries);
+         const crit = CRITICALITY_STYLES[normalizeCriticality(kpi.criticality)];
+         const isKPIDragging = drag?.kind === 'kpi' && drag.id === kpi.id;
          return (
-          <div key={kpi.id} className="flex hover:bg-neutral-900/50 border-b border-neutral-800/50">
-           <div className="w-64 shrink-0 p-3 sticky left-0 bg-neutral-950 border-r border-neutral-800">
-            <div className="text-sm text-neutral-100 truncate">{kpi.name}</div>
-            <div className="flex items-center gap-2 mt-0.5">
+          <div
+           key={kpi.id}
+           className={`flex hover:bg-neutral-900/50 border-b border-neutral-800/50 transition-opacity
+            ${isKPIDragging ? 'opacity-40' : ''}`}
+           onDragOver={handleKPIDragOver(kpi)}
+           onDrop={handleKPIDrop(kpi)}
+          >
+           <div
+            draggable
+            onDragStart={handleKPIDragStart(kpi)}
+            onDragEnd={handleDragEnd}
+            className="w-64 shrink-0 p-3 sticky left-0 bg-neutral-950 border-r border-neutral-800 cursor-grab active:cursor-grabbing select-none"
+            title={`Drag to reorder within ${getAspectColor(aspect) ? aspect.name : 'aspect'}`}
+           >
+            <div className="flex items-center gap-2">
+             <GripVertical size={12} className="text-neutral-700 shrink-0" />
+             {/* Criticality badge — fixed-width dot with a soft ring so
+               alignment of the KPI name stays consistent across rows. */}
+             <span
+              className="h-2.5 w-2.5 rounded-full shrink-0"
+              style={{
+               background: crit.dot,
+               boxShadow: `0 0 0 3px ${crit.ring}`,
+              }}
+              aria-label={`Criticality: ${crit.label}`}
+              title={`Criticality: ${crit.label}`}
+             />
+             <span className="text-sm text-neutral-100 truncate">{kpi.name}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 pl-6">
              <span className="label-micro text-neutral-500 font-mono-ui">
               MAS {getKPICurrentScore(kpi, entries).toFixed(2)}
              </span>
@@ -920,7 +1171,8 @@ function MatrixSection({ kpis, aspects }) {
          );
         })}
        </div>
-      ))}
+       );
+      })}
      </div>
     </div>
    )}
@@ -1000,13 +1252,133 @@ function HistoricalSection({ aspects }) {
  );
 }
 
+/* ----- Notepad (per-aspect reflections) -----
+  Auto-bullet logic:
+   · When the user types into an empty pad, we seed with "• " on focus.
+   · When the user types text that has no bullet prefix, it gets one.
+   · When the user presses Enter, a "\n• " is inserted at the caret and
+    the cursor is positioned after the bullet so typing continues inline.
+  Notes are keyed by aspect id and persisted through the same localStorage
+  channel as scores. Switching aspects swaps the visible buffer instantly. */
+function NotepadSection({ aspects }) {
+ const { notes, updateNotes, aspectFilter } = useApp();
+ const textareaRef = useRef(null);
+
+ // Pick which aspect's notes we're viewing. If a sidebar filter is active
+ // it wins; otherwise the user selects via a local dropdown.
+ const [selectedAspectId, setSelectedAspectId] = useState(
+  aspectFilter || aspects[0]?.id || null,
+ );
+
+ useEffect(() => {
+  if (aspectFilter) setSelectedAspectId(aspectFilter);
+ }, [aspectFilter]);
+
+ // If the currently-selected aspect disappears (deletion), fall back gracefully.
+ useEffect(() => {
+  if (selectedAspectId && !aspects.some((a) => a.id === selectedAspectId)) {
+   setSelectedAspectId(aspects[0]?.id || null);
+  }
+ }, [aspects, selectedAspectId]);
+
+ const activeAspect = aspects.find((a) => a.id === selectedAspectId);
+ const text = activeAspect ? (notes[activeAspect.id] || '') : '';
+
+ const handleKeyDown = (e) => {
+  if (!activeAspect) return;
+  if (e.key === 'Enter') {
+   e.preventDefault();
+   const el = textareaRef.current;
+   if (!el) return;
+   const start = el.selectionStart;
+   const end = el.selectionEnd;
+   const newText = text.slice(0, start) + '\n• ' + text.slice(end);
+   updateNotes(activeAspect.id, newText);
+   // Restore caret just after the inserted "• " once React re-renders.
+   const caret = start + 3;
+   requestAnimationFrame(() => {
+    if (textareaRef.current) {
+     textareaRef.current.selectionStart = caret;
+     textareaRef.current.selectionEnd = caret;
+    }
+   });
+  }
+ };
+
+ const handleChange = (e) => {
+  if (!activeAspect) return;
+  let v = e.target.value;
+  // Any non-empty content without a bullet prefix on the first line gets one.
+  if (v.length > 0 && !v.startsWith('• ') && !v.startsWith('\n')) {
+   v = '• ' + v;
+  }
+  updateNotes(activeAspect.id, v);
+ };
+
+ const handleFocus = () => {
+  if (activeAspect && !text) updateNotes(activeAspect.id, '• ');
+ };
+
+ return (
+  <div className="bg-neutral-900/40 border border-neutral-800 rounded-lg flex flex-col h-full">
+   <div className="flex items-center justify-between p-6 border-b border-neutral-800 gap-3">
+    <div className="min-w-0">
+     <div className="label-mini text-neutral-500 font-mono-ui">Reflections</div>
+     <h3 className="font-display text-xl text-neutral-100 mt-0.5 flex items-center gap-2">
+      <NotebookPen size={18} className="text-rose-500" />
+      Notepad
+     </h3>
+    </div>
+    {!aspectFilter && aspects.length > 1 && (
+     <select
+      value={selectedAspectId || ''}
+      onChange={(e) => setSelectedAspectId(e.target.value)}
+      className="bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-rose-600/50 font-mono-ui"
+     >
+      {aspects.map((a) => (
+       <option key={a.id} value={a.id}>{a.name}</option>
+      ))}
+     </select>
+    )}
+   </div>
+
+   {activeAspect ? (
+    <div className="flex-1 p-5 overflow-hidden flex flex-col min-h-[280px]">
+     <div className="label-micro text-neutral-600 font-mono-ui mb-3 flex items-center gap-2">
+      <span
+       className="h-1.5 w-1.5 rounded-full"
+       style={{ background: getAspectColor(activeAspect) }}
+      />
+      {activeAspect.name}
+     </div>
+     <textarea
+      ref={textareaRef}
+      value={text}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      placeholder="Start typing — every line becomes a bullet."
+      spellCheck={false}
+      className="flex-1 w-full bg-transparent text-sm text-neutral-200 placeholder-neutral-600 resize-none focus:outline-none leading-relaxed overflow-y-auto"
+     />
+    </div>
+   ) : (
+    <div className="flex-1 flex items-center justify-center p-8 text-center text-sm text-neutral-500 min-h-[280px]">
+     No aspects available. Create one first to start taking notes.
+    </div>
+   )}
+  </div>
+ );
+}
+
 /* =========================================================================
   8. ASPECTS & KPIs MANAGEMENT PAGE
   ========================================================================= */
 
 function AspectsKPIsPage() {
- const { activeAspects, activeKPIs, searchQuery } = useApp();
+ const { activeAspects, activeKPIs, searchQuery, moveAspect } = useApp();
  const [addAspectOpen, setAddAspectOpen] = useState(false);
+ const [dragAspectId, setDragAspectId] = useState(null);
 
  // Multi-field search: an aspect is shown if either (a) its own name matches,
  // OR (b) it contains at least one KPI whose name or description matches.
@@ -1020,6 +1392,27 @@ function AspectsKPIsPage() {
     if (a.name.toLowerCase().includes(searchLower)) return true;
     return activeKPIs.some((k) => k.aspectId === a.id && kpiMatches(k));
    });
+
+ // Drag handlers are passed down so the drag handle lives inside the row
+ // (better UX — the user grabs a visible grip, not an arbitrary surface).
+ const handleAspectDragStart = (aspectId) => (e) => {
+  setDragAspectId(aspectId);
+  e.dataTransfer.effectAllowed = 'move';
+ };
+ const handleAspectDragOver = (aspectId) => (e) => {
+  if (dragAspectId && dragAspectId !== aspectId) {
+   e.preventDefault();
+   e.dataTransfer.dropEffect = 'move';
+  }
+ };
+ const handleAspectDrop = (aspectId) => (e) => {
+  if (dragAspectId && dragAspectId !== aspectId) {
+   e.preventDefault();
+   moveAspect(dragAspectId, aspectId);
+  }
+  setDragAspectId(null);
+ };
+ const handleAspectDragEnd = () => setDragAspectId(null);
 
  return (
   <div className="container-xl mx-auto px-6 py-8">
@@ -1055,7 +1448,16 @@ function AspectsKPIsPage() {
      </div>
     )}
     {displayedAspects.map((aspect, i) => (
-     <AspectRow key={aspect.id} aspect={aspect} colorIndex={i} />
+     <AspectRow
+      key={aspect.id}
+      aspect={aspect}
+      colorIndex={i}
+      isDragging={dragAspectId === aspect.id}
+      onDragStart={handleAspectDragStart(aspect.id)}
+      onDragOver={handleAspectDragOver(aspect.id)}
+      onDrop={handleAspectDrop(aspect.id)}
+      onDragEnd={handleAspectDragEnd}
+     />
     ))}
    </div>
 
@@ -1064,12 +1466,21 @@ function AspectsKPIsPage() {
  );
 }
 
-function AspectRow({ aspect, colorIndex }) {
- const { activeKPIs, entries, softDeleteAspect, softDeleteKPI, searchQuery } = useApp();
+function AspectRow({ aspect, colorIndex, isDragging, onDragStart, onDragOver, onDrop, onDragEnd }) {
+ const {
+  activeKPIs, entries, softDeleteAspect, softDeleteKPI, searchQuery, moveKPI,
+ } = useApp();
  const [open, setOpen] = useState(true);
  const [addKPIOpen, setAddKPIOpen] = useState(false);
- const [confirmDelete, setConfirmDelete] = useState(null); // {type, id, name} | null
+ const [editAspectOpen, setEditAspectOpen] = useState(false);
+ const [editingKPI, setEditingKPI] = useState(null); // kpi object | null
+ const [confirmDelete, setConfirmDelete] = useState(null);
  const [selectedKPIs, setSelectedKPIs] = useState(new Set());
+
+ // KPI-level drag state. Because this table only renders KPIs belonging to
+ // THIS aspect, the parent-child constraint is enforced by construction —
+ // a drop can only land on a KPI of the same aspect.
+ const [dragKPIId, setDragKPIId] = useState(null);
 
  const color = getAspectColor(aspect, colorIndex);
 
@@ -1079,9 +1490,7 @@ function AspectRow({ aspect, colorIndex }) {
   .filter((k) => k.aspectId === aspect.id)
   .filter((k) => {
    if (!searchLower) return true;
-   // If the aspect name itself matched, show its full KPI list.
    if (aspectNameMatches) return true;
-   // Otherwise, only show KPIs whose name or description matches the query.
    return (
     k.name.toLowerCase().includes(searchLower) ||
     (k.description || '').toLowerCase().includes(searchLower)
@@ -1108,12 +1517,49 @@ function AspectRow({ aspect, colorIndex }) {
   setConfirmDelete({ type: 'kpi-bulk', ids: [...selectedKPIs] });
  };
 
+ // ----- KPI drag handlers (within-parent only) -----
+ const handleKPIDragStart = (kpiId) => (e) => {
+  setDragKPIId(kpiId);
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation(); // don't trigger the aspect-level drag
+ };
+ const handleKPIDragOver = (kpiId) => (e) => {
+  if (dragKPIId && dragKPIId !== kpiId) {
+   e.preventDefault();
+   e.stopPropagation();
+   e.dataTransfer.dropEffect = 'move';
+  }
+ };
+ const handleKPIDrop = (kpiId) => (e) => {
+  if (dragKPIId && dragKPIId !== kpiId) {
+   e.preventDefault();
+   e.stopPropagation();
+   moveKPI(dragKPIId, kpiId);
+  }
+  setDragKPIId(null);
+ };
+ const handleKPIDragEnd = () => setDragKPIId(null);
+
  return (
-  <div className="bg-neutral-900/40 border border-neutral-800 rounded-lg overflow-hidden">
-   {/* Aspect header */}
-   <div className="flex items-center gap-4 p-5">
+  <div
+   className={`bg-neutral-900/40 border border-neutral-800 rounded-lg overflow-hidden transition-opacity
+    ${isDragging ? 'opacity-40 border-rose-600/50' : ''}`}
+   onDragOver={onDragOver}
+   onDrop={onDrop}
+  >
+   {/* Aspect header — grip on the far left handles aspect-level reordering */}
+   <div className="flex items-center gap-3 p-5">
     <div
-     className="h-10 w-1 rounded-full"
+     draggable
+     onDragStart={onDragStart}
+     onDragEnd={onDragEnd}
+     className="cursor-grab active:cursor-grabbing text-neutral-600 hover:text-neutral-400 shrink-0 p-1 -ml-1"
+     title="Drag to reorder aspect"
+    >
+     <GripVertical size={14} />
+    </div>
+    <div
+     className="h-10 w-1 rounded-full shrink-0"
      style={{ background: color, boxShadow: `0 0 20px ${color}55` }}
     />
     <button
@@ -1146,13 +1592,24 @@ function AspectRow({ aspect, colorIndex }) {
       <div className="font-mono-ui text-lg text-neutral-100">{aspectKPIs.length}</div>
      </div>
     </div>
-    <button
-     onClick={() => setConfirmDelete({ type: 'aspect', id: aspect.id, name: aspect.name })}
-     className="p-2 text-neutral-500 hover:text-rose-500 hover:bg-rose-600/10 rounded-md transition-colors"
-     aria-label="Delete aspect"
-    >
-     <Trash2 size={16} />
-    </button>
+    <div className="flex items-center gap-1 shrink-0">
+     <button
+      onClick={() => setEditAspectOpen(true)}
+      className="p-2 text-neutral-500 hover:text-rose-400 hover:bg-neutral-800 rounded-md transition-colors"
+      aria-label="Edit aspect"
+      title="Edit aspect"
+     >
+      <Pencil size={14} />
+     </button>
+     <button
+      onClick={() => setConfirmDelete({ type: 'aspect', id: aspect.id, name: aspect.name })}
+      className="p-2 text-neutral-500 hover:text-rose-500 hover:bg-rose-600/10 rounded-md transition-colors"
+      aria-label="Delete aspect"
+      title="Delete aspect"
+     >
+      <Trash2 size={16} />
+     </button>
+    </div>
    </div>
 
    {open && (
@@ -1200,13 +1657,14 @@ function AspectRow({ aspect, colorIndex }) {
        <table className="w-full text-sm">
         <thead>
          <tr className="label-micro text-neutral-500 font-mono-ui border-b border-neutral-800">
-          <th className="p-3 pl-4 w-10"></th>
+          <th className="p-3 pl-4 w-16"></th>
           <th className="text-left p-3">Name</th>
           <th className="text-left p-3 hidden md:table-cell">Period</th>
+          <th className="text-left p-3 hidden lg:table-cell">Criticality</th>
           <th className="text-left p-3 hidden md:table-cell">Description</th>
           <th className="text-right p-3">Streak</th>
           <th className="text-right p-3">Score</th>
-          <th className="p-3 w-10"></th>
+          <th className="p-3 w-20"></th>
          </tr>
         </thead>
         <tbody>
@@ -1214,24 +1672,62 @@ function AspectRow({ aspect, colorIndex }) {
           const score = getKPICurrentScore(kpi, entries);
           const streak = calculateStreak(kpi, entries);
           const isSel = selectedKPIs.has(kpi.id);
+          const crit = CRITICALITY_STYLES[normalizeCriticality(kpi.criticality)];
+          const isKPIDragging = dragKPIId === kpi.id;
           return (
-           <tr key={kpi.id} className="border-b border-neutral-800/50 hover:bg-neutral-900/40">
+           <tr
+            key={kpi.id}
+            draggable
+            onDragStart={handleKPIDragStart(kpi.id)}
+            onDragOver={handleKPIDragOver(kpi.id)}
+            onDrop={handleKPIDrop(kpi.id)}
+            onDragEnd={handleKPIDragEnd}
+            className={`border-b border-neutral-800/50 hover:bg-neutral-900/40 transition-opacity
+             ${isKPIDragging ? 'opacity-40' : ''}`}
+           >
             <td className="p-3 pl-4">
-             <button
-              onClick={() => toggleSel(kpi.id)}
-              className={`h-4 w-4 rounded border flex items-center justify-center transition-colors
-               ${isSel
-                ? 'bg-rose-600 border-rose-500'
-                : 'border-neutral-600 hover:border-rose-600'}`}
-              aria-label="Select KPI"
-             >
-              {isSel && <Check size={10} className="text-white" strokeWidth={3} />}
-             </button>
+             <div className="flex items-center gap-2">
+              <span
+               className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-500"
+               title="Drag to reorder within this aspect"
+              >
+               <GripVertical size={12} />
+              </span>
+              <button
+               onClick={() => toggleSel(kpi.id)}
+               className={`h-4 w-4 rounded border flex items-center justify-center transition-colors
+                ${isSel
+                 ? 'bg-rose-600 border-rose-500'
+                 : 'border-neutral-600 hover:border-rose-600'}`}
+               aria-label="Select KPI"
+              >
+               {isSel && <Check size={10} className="text-white" strokeWidth={3} />}
+              </button>
+             </div>
             </td>
-            <td className="p-3 text-neutral-100">{kpi.name}</td>
+            <td className="p-3 text-neutral-100">
+             <div className="flex items-center gap-2.5">
+              {/* Criticality badge inline with name (visible on all breakpoints) */}
+              <span
+               className="h-2 w-2 rounded-full shrink-0"
+               style={{
+                background: crit.dot,
+                boxShadow: `0 0 0 2px ${crit.ring}`,
+               }}
+               title={`Criticality: ${crit.label}`}
+              />
+              {kpi.name}
+             </div>
+            </td>
             <td className="p-3 hidden md:table-cell">
              <span className="inline-block label-micro uppercase tracking-wider font-mono-ui px-2 py-0.5 bg-neutral-800 text-neutral-300 rounded">
               {kpi.period}
+             </span>
+            </td>
+            <td className="p-3 hidden lg:table-cell">
+             <span className="inline-flex items-center gap-1.5 text-xs text-neutral-400">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: crit.dot }} />
+              {crit.label}
              </span>
             </td>
             <td className="p-3 text-neutral-500 hidden md:table-cell max-w-xs truncate">
@@ -1250,15 +1746,26 @@ function AspectRow({ aspect, colorIndex }) {
              {score.toFixed(2)}<span className="text-neutral-600">/10</span>
             </td>
             <td className="p-3">
-             <button
-              onClick={() =>
-               setConfirmDelete({ type: 'kpi', id: kpi.id, name: kpi.name })
-              }
-              className="p-1.5 text-neutral-600 hover:text-rose-500 rounded transition-colors"
-              aria-label="Delete KPI"
-             >
-              <Trash2 size={14} />
-             </button>
+             <div className="flex items-center justify-end gap-1">
+              <button
+               onClick={() => setEditingKPI(kpi)}
+               className="p-1.5 text-neutral-600 hover:text-rose-400 rounded transition-colors"
+               aria-label="Edit KPI"
+               title="Edit KPI"
+              >
+               <Pencil size={13} />
+              </button>
+              <button
+               onClick={() =>
+                setConfirmDelete({ type: 'kpi', id: kpi.id, name: kpi.name })
+               }
+               className="p-1.5 text-neutral-600 hover:text-rose-500 rounded transition-colors"
+               aria-label="Delete KPI"
+               title="Delete KPI"
+              >
+               <Trash2 size={14} />
+              </button>
+             </div>
             </td>
            </tr>
           );
@@ -1271,6 +1778,12 @@ function AspectRow({ aspect, colorIndex }) {
    )}
 
    {addKPIOpen && <AddKPIModal aspectId={aspect.id} onClose={() => setAddKPIOpen(false)} />}
+   {editAspectOpen && (
+    <EditAspectModal aspect={aspect} onClose={() => setEditAspectOpen(false)} />
+   )}
+   {editingKPI && (
+    <EditKPIModal kpi={editingKPI} onClose={() => setEditingKPI(null)} />
+   )}
 
    {confirmDelete && (
     <ConfirmDeleteModal
@@ -1427,6 +1940,7 @@ function AddKPIModal({ aspectId, onClose }) {
  const [name, setName] = useState('');
  const [description, setDescription] = useState('');
  const [period, setPeriod] = useState('weekly');
+ const [criticality, setCriticality] = useState('medium');
  const [error, setError] = useState('');
 
  const onSave = () => {
@@ -1434,7 +1948,7 @@ function AddKPIModal({ aspectId, onClose }) {
    setError('Both name and description are required.');
    return;
   }
-  addKPI(aspectId, name.trim(), description.trim(), period);
+  addKPI(aspectId, name.trim(), description.trim(), period, criticality);
   onClose();
  };
 
@@ -1465,23 +1979,49 @@ function AddKPIModal({ aspectId, onClose }) {
       className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-neutral-100 placeholder-neutral-600 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/30 resize-none"
      />
     </div>
-    <div>
-     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">
-      Period
-     </label>
-     <div className="grid grid-cols-2 gap-2">
-      {['weekly', 'monthly'].map((p) => (
-       <button
-        key={p}
-        onClick={() => setPeriod(p)}
-        className={`px-4 py-2.5 text-sm rounded-md border transition-colors capitalize
-         ${period === p
-          ? 'bg-rose-600/10 border-rose-600/50 text-rose-400'
-          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-700'}`}
-       >
-        {p}
-       </button>
-      ))}
+    <div className="grid grid-cols-2 gap-4">
+     <div>
+      <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">
+       Period
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+       {['weekly', 'monthly'].map((p) => (
+        <button
+         key={p}
+         onClick={() => setPeriod(p)}
+         className={`px-3 py-2.5 text-sm rounded-md border transition-colors capitalize
+          ${period === p
+           ? 'bg-rose-600/10 border-rose-600/50 text-rose-400'
+           : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-700'}`}
+        >
+         {p}
+        </button>
+       ))}
+      </div>
+     </div>
+     <div>
+      <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">
+       Criticality
+      </label>
+      <div className="grid grid-cols-3 gap-1.5">
+       {CRITICALITY_LEVELS.map((c) => {
+        const style = CRITICALITY_STYLES[c];
+        const selected = criticality === c;
+        return (
+         <button
+          key={c}
+          onClick={() => setCriticality(c)}
+          className={`px-2 py-2.5 text-xs rounded-md border transition-colors capitalize flex items-center justify-center gap-1.5
+           ${selected
+            ? 'bg-neutral-800 border-neutral-600 text-neutral-100'
+            : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
+         >
+          <span className="h-2 w-2 rounded-full" style={{ background: style.dot }} />
+          {style.label}
+         </button>
+        );
+       })}
+      </div>
      </div>
     </div>
     {error && <div className="text-xs text-rose-500">{error}</div>}
@@ -1497,6 +2037,153 @@ function AddKPIModal({ aspectId, onClose }) {
       className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-500 text-white rounded-md transition-colors"
      >
       Save KPI
+     </button>
+    </div>
+   </div>
+  </Modal>
+ );
+}
+
+function EditAspectModal({ aspect, onClose }) {
+ const { editAspect } = useApp();
+ const [name, setName] = useState(aspect.name);
+ const [description, setDescription] = useState(aspect.description || '');
+ const [error, setError] = useState('');
+
+ const onSave = () => {
+  if (!name.trim() || !description.trim()) {
+   setError('Both name and description are required.');
+   return;
+  }
+  // Only label metadata mutates — id, status, createdAt, and every entry
+  // reference remain untouched by this call. Historical scores stay intact.
+  editAspect(aspect.id, { name: name.trim(), description: description.trim() });
+  onClose();
+ };
+
+ return (
+  <Modal title="Edit Aspect" onClose={onClose}>
+   <div className="flex flex-col gap-4">
+    <div>
+     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">Name</label>
+     <input
+      autoFocus
+      value={name}
+      onChange={(e) => { setName(e.target.value); setError(''); }}
+      className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/30"
+     />
+    </div>
+    <div>
+     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">Description</label>
+     <textarea
+      rows={3}
+      value={description}
+      onChange={(e) => { setDescription(e.target.value); setError(''); }}
+      className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/30 resize-none"
+     />
+    </div>
+    {error && <div className="text-xs text-rose-500">{error}</div>}
+    <div className="flex gap-3 justify-end mt-2">
+     <button
+      onClick={onClose}
+      className="px-4 py-2 text-sm text-neutral-300 hover:text-neutral-100 border border-neutral-800 hover:border-neutral-700 rounded-md transition-colors"
+     >
+      Cancel
+     </button>
+     <button
+      onClick={onSave}
+      className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-500 text-white rounded-md transition-colors"
+     >
+      Save Changes
+     </button>
+    </div>
+   </div>
+  </Modal>
+ );
+}
+
+function EditKPIModal({ kpi, onClose }) {
+ const { editKPI } = useApp();
+ const [name, setName] = useState(kpi.name);
+ const [description, setDescription] = useState(kpi.description || '');
+ const [criticality, setCriticality] = useState(normalizeCriticality(kpi.criticality));
+ const [error, setError] = useState('');
+
+ const onSave = () => {
+  if (!name.trim() || !description.trim()) {
+   setError('Both name and description are required.');
+   return;
+  }
+  // Period is intentionally not editable: it governs the scoring math and
+  // historical entries are keyed by that period-type assumption. Only name,
+  // description, and criticality mutate. Id and entry references are preserved.
+  editKPI(kpi.id, {
+   name: name.trim(),
+   description: description.trim(),
+   criticality,
+  });
+  onClose();
+ };
+
+ return (
+  <Modal title="Edit KPI" onClose={onClose}>
+   <div className="flex flex-col gap-4">
+    <div>
+     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">Name</label>
+     <input
+      autoFocus
+      value={name}
+      onChange={(e) => { setName(e.target.value); setError(''); }}
+      className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/30"
+     />
+    </div>
+    <div>
+     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">Description</label>
+     <textarea
+      rows={2}
+      value={description}
+      onChange={(e) => { setDescription(e.target.value); setError(''); }}
+      className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/30 resize-none"
+     />
+    </div>
+    <div>
+     <label className="label-micro text-neutral-500 font-mono-ui block mb-1.5">Criticality</label>
+     <div className="grid grid-cols-3 gap-1.5">
+      {CRITICALITY_LEVELS.map((c) => {
+       const style = CRITICALITY_STYLES[c];
+       const selected = criticality === c;
+       return (
+        <button
+         key={c}
+         onClick={() => setCriticality(c)}
+         className={`px-2 py-2.5 text-xs rounded-md border transition-colors capitalize flex items-center justify-center gap-1.5
+          ${selected
+           ? 'bg-neutral-800 border-neutral-600 text-neutral-100'
+           : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
+        >
+         <span className="h-2 w-2 rounded-full" style={{ background: style.dot }} />
+         {style.label}
+        </button>
+       );
+      })}
+     </div>
+    </div>
+    <div className="label-micro text-neutral-600 font-mono-ui">
+     Period ({kpi.period}) is locked to preserve historical scoring integrity.
+    </div>
+    {error && <div className="text-xs text-rose-500">{error}</div>}
+    <div className="flex gap-3 justify-end mt-2">
+     <button
+      onClick={onClose}
+      className="px-4 py-2 text-sm text-neutral-300 hover:text-neutral-100 border border-neutral-800 hover:border-neutral-700 rounded-md transition-colors"
+     >
+      Cancel
+     </button>
+     <button
+      onClick={onSave}
+      className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-500 text-white rounded-md transition-colors"
+     >
+      Save Changes
      </button>
     </div>
    </div>
