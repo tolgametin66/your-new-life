@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useContext, createContext, useEffect } from 'react';
+import React, { useState, useMemo, useContext, createContext, useEffect, useRef } from 'react';
 import {
  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
  LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
@@ -689,12 +689,20 @@ function RadarSection({ aspects }) {
     style={{ background: 'radial-gradient(circle at 50% 50%, rgba(225,29,72,0.15), transparent 60%)' }}
    />
    <div className="relative">
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-start justify-between mb-4 gap-4">
      <div>
       <div className="label-mini text-neutral-500 font-mono-ui">
        Life Balance
       </div>
       <h3 className="font-display text-xl text-neutral-100 mt-0.5">Aspect Radar</h3>
+     </div>
+     <div className="text-right shrink-0">
+      <div className="label-micro text-neutral-500 font-mono-ui">
+       Total Aggregate
+      </div>
+      <div className="font-display text-3xl text-rose-500 leading-none mt-1">
+       {total.toFixed(2)}
+      </div>
      </div>
     </div>
 
@@ -733,16 +741,6 @@ function RadarSection({ aspects }) {
        />
       </RadarChart>
      </ResponsiveContainer>
-
-     {/* Centered aggregate score overlay */}
-     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-      <div className="label-micro text-neutral-500 font-mono-ui">
-       Total Aggregate
-      </div>
-      <div className="font-display text-4xl text-rose-500 leading-none mt-1">
-       {total.toFixed(2)}
-      </div>
-     </div>
     </div>
 
     {/* legend */}
@@ -764,6 +762,7 @@ function RadarSection({ aspects }) {
 function MatrixSection({ kpis, aspects }) {
  const [periodType, setPeriodType] = useState('weekly');
  const { entries, toggleEntry } = useApp();
+ const scrollRef = useRef(null);
 
  const filteredKPIs = kpis.filter((k) => k.period === periodType);
  const kpisByAspect = aspects
@@ -780,6 +779,17 @@ function MatrixSection({ kpis, aspects }) {
  const futureCount = periodType === 'weekly' ? 4 : 3;
  const periodIds = getExtendedPeriodIds(periodType, pastCount, futureCount);
  const currentPeriod = getCurrentPeriodId(periodType);
+ const currentIndex = periodIds.indexOf(currentPeriod);
+
+ // Anchor the initial scroll position to the current period so it appears as
+ // the first visible column just after the sticky KPI-name column. Past periods
+ // remain accessible by scrolling left; future periods sit to the right.
+ // Each period column is w-16 (64px). Re-fires when periodType changes.
+ useEffect(() => {
+  if (scrollRef.current && currentIndex >= 0) {
+   scrollRef.current.scrollLeft = currentIndex * 64;
+  }
+ }, [periodType, currentIndex]);
 
  return (
   <div className="bg-neutral-900/40 border border-neutral-800 rounded-lg h-full flex flex-col">
@@ -814,7 +824,7 @@ function MatrixSection({ kpis, aspects }) {
      </div>
     </div>
    ) : (
-    <div className="flex-1 overflow-x-auto">
+    <div ref={scrollRef} className="flex-1 overflow-x-auto">
      <div className="min-w-max">
       {/* Header row */}
       <div className="flex sticky top-0 bg-neutral-950/90 border-b border-neutral-800 z-10">
@@ -994,13 +1004,21 @@ function HistoricalSection({ aspects }) {
   ========================================================================= */
 
 function AspectsKPIsPage() {
- const { activeAspects, searchQuery } = useApp();
+ const { activeAspects, activeKPIs, searchQuery } = useApp();
  const [addAspectOpen, setAddAspectOpen] = useState(false);
 
+ // Multi-field search: an aspect is shown if either (a) its own name matches,
+ // OR (b) it contains at least one KPI whose name or description matches.
  const searchLower = searchQuery.trim().toLowerCase();
+ const kpiMatches = (k) =>
+  k.name.toLowerCase().includes(searchLower) ||
+  (k.description || '').toLowerCase().includes(searchLower);
  const displayedAspects = !searchLower
   ? activeAspects
-  : activeAspects.filter((a) => a.name.toLowerCase().includes(searchLower));
+  : activeAspects.filter((a) => {
+    if (a.name.toLowerCase().includes(searchLower)) return true;
+    return activeKPIs.some((k) => k.aspectId === a.id && kpiMatches(k));
+   });
 
  return (
   <div className="container-xl mx-auto px-6 py-8">
@@ -1055,9 +1073,19 @@ function AspectRow({ aspect, colorIndex }) {
  const color = getAspectColor(aspect, colorIndex);
 
  const searchLower = searchQuery.trim().toLowerCase();
+ const aspectNameMatches = !searchLower || aspect.name.toLowerCase().includes(searchLower);
  const aspectKPIs = activeKPIs
   .filter((k) => k.aspectId === aspect.id)
-  .filter((k) => !searchLower || k.name.toLowerCase().includes(searchLower));
+  .filter((k) => {
+   if (!searchLower) return true;
+   // If the aspect name itself matched, show its full KPI list.
+   if (aspectNameMatches) return true;
+   // Otherwise, only show KPIs whose name or description matches the query.
+   return (
+    k.name.toLowerCase().includes(searchLower) ||
+    (k.description || '').toLowerCase().includes(searchLower)
+   );
+  });
 
  const aspectMonthlyMAS = calculateAspectMonthlyMAS(
   aspect.id,
