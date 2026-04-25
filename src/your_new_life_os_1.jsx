@@ -15,13 +15,8 @@ import {
   ========================================================================= */
 
 const QUOTES = [
- "Discipline is choosing between what you want now and what you want most. — Abraham Lincoln",
- "We are what we repeatedly do. Excellence, then, is not an act, but a habit. — Aristotle",
- "The person you will be in five years is based on the books you read and the people you spend time with today.",
- "Small daily improvements over time lead to stunning results. — Robin Sharma",
- "You do not rise to the level of your goals. You fall to the level of your systems. — James Clear",
- "The cave you fear to enter holds the treasure you seek. — Joseph Campbell",
- "Between stimulus and response there is a space. In that space is our power to choose. — Viktor Frankl",
+ "You need purpose in life",
+ "Try to better than yesterday, not better than someone else",
 ];
 
 // Each aspect has a signature color. Crimson leads for "Physical" as the primary accent.
