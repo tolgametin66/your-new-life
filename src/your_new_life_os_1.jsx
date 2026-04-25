@@ -16,7 +16,7 @@ import {
 
 const QUOTES = [
  "You need purpose in life",
- "Try to better than yesterday, not better than someone else",
+ "Try to be better than yesterday, not better than someone else",
 ];
 
 // Each aspect has a signature color. Crimson leads for "Physical" as the primary accent.
